@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: mxmul-pkg
+Version: 0.1.0
+Summary: An exaple for teaching how to publish a Python package
+Home-page: http://
+Author: zhangxin
+Author-email: 879086359@qq.com
+License: UNKNOWN
+Description: #Example Packege
+        
+        This is a simple example package.You can use [Github-flavored Markdown](https://guides.github.com/features/master ing-markdown/) to write your content.
+Platform: UNKNOWN
+Classifier: Programming Language::Python ::3
+Classifier: Licence ::OSI Approved ::MIT License
+Classifier: Operating System ::OS Indepent
+Description-Content-Type: text/markdown

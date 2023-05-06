@@ -1,0 +1,5 @@
+{'vule_name': 'redis week_password', 'severity': 'high', 'vule_url': '127.0.0.1:6379  week_password: mypassword', 'url': 'http://127.0.0.1'}
+{'vule_name': 'redis week_password', 'severity': 'high', 'vule_url': '127.0.0.1:6379  week_password: mypassword', 'url': '127.0.0.1'}
+{'vule_name': 'redis week_password', 'severity': 'high', 'vule_url': '127.0.0.1:6379  week_password: mypassword', 'url': '127.0.0.1'}
+{'vule_name': 'redis week_password', 'severity': 'high', 'vule_url': '127.0.0.1:6379  week_password: mypassword', 'url': '127.0.0.1'}
+{'vule_name': 'redis week_password', 'severity': 'high', 'vule_url': '127.0.0.1:6379  week_password: mypassword', 'url': '127.0.0.1'}

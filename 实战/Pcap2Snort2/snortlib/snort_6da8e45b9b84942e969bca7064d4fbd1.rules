@@ -1,0 +1,1 @@
+alert dns any any -> any any (msg:"{'org': '', 'author': 'snort_tools', 'behavior': ['DNSQuery'], 'vulnerability_id': '', 'app_info': '', 'description': '可疑域名解析请求', 'extract_date': '20230526', 'threat_name': '', 'family': '', 'sign_source': 'ArtificialExtraction', 'refer': []}";content:"|70 6f 73 74|";content:"|6b 73 6f 73 6f 66 74|";content:"|63 6f 6d|";)

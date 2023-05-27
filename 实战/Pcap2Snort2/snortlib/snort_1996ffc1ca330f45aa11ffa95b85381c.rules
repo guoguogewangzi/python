@@ -1,0 +1,1 @@
+alert icmp any any -> any any (msg:"{'org': '', 'author': 'snort_tools', 'behavior': ['ICMPDataTraffic'], 'vulnerability_id': '', 'app_info': '', 'description': '可疑ICMP数据输入', 'extract_date': '20230526', 'threat_name': '', 'family': '', 'sign_source': 'ArtificialExtraction', 'refer': []}";content:"|61 62 63 64 65 66 67 68 69 6a 6b|";classtype:BackDoor;)

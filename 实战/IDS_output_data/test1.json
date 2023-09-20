@@ -1,0 +1,14 @@
+{
+"people":[
+        { "name":"John Smith",
+          "phone":"615-555-7154",
+          "emails":["johnsmith@bogusemail.com","john.smith@work-place.com"],
+          "has_license":false},
+        {
+         "name":"jane Doe",
+         "phone":"560-555-5153",
+         "emails":null,
+         "has_license":true
+        }
+]
+}

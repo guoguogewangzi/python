@@ -1,10 +1,11 @@
 # coding=utf-8
-import sys,json,time,datetime,os,zipfile,zlib,pdb
+import sys,json,time,datetime,os,zipfile
 from os.path import basename
 
 import elasticsearch
 from ssl import create_default_context
 
+#类：列构造获取ES客户端的类
 #一级##################################################################################################################
 class ElasticSearchClient(object):
     
@@ -59,6 +60,7 @@ class ElasticSearchClient(object):
     #二级######################################################################################################
 #一级##################################################################################################################
 
+
 #es客户端实例化
 es_client = ElasticSearchClient(is_authorization=True).get_es_servers()
 
@@ -104,7 +106,7 @@ index_global = 'test_alert'
 # 第五步：must_query_list（过滤条件列表）
 # 第六步：distinct_key（要去重的字段列表）
 # 第七步：is_compress（是否压缩导出信标）
-###################################################################################################################
+#一级##################################################################################################################
 def get_input():
     
     #帮助说明
@@ -206,97 +208,9 @@ def get_input():
     
     #共七个参数返回
     return index,timestamp_start,timestamp_end,source_key,must_query_list,distinct_key,is_compress
-###################################################################################################################
+#一级##################################################################################################################
 
-
-def scroll_search(index, time_start, time_end, data_file, source_key, must_not_query, must_query_list):
-    
-    timestamp = "timestamp"
-    
-    #暂时不管
-    #############################################################################################
-    if index == 'sandbox':
-        timestamp = '@timestamp'
-        time_start -= 8 * 60 * 60
-        time_start= str(datetime.datetime.fromtimestamp(time_start).strftime('%Y-%m-%dT%H:%M:%S'))
-        time_end -= 8 * 60 * 60
-        time_end = str(datetime.datetime.fromtimestamp(time_end).strftime('%Y-%m-%dT%H:%M:%S'))
-    #############################################################################################
-
-    query_dict = {
-        "size": 2000,
-        "query": {
-            "bool": {
-                "filter": {
-                    "range": {
-                        timestamp: {
-                            "gte": time_start,           #传入参数time_start：开始时间
-                            "lte": time_end              #传入参数time_end：结束时间参数
-                        }
-                    }
-                },
-                "must_not": must_not_query,             #传入参数must_not_query：指定哪些条件不匹配列表
-                "must": must_query_list                 #传入参数must_query_list：过滤条件列表
-            }
-
-        },
-        "_source": source_key                            #传入参数source_key：需要导出的字段列表
-    }
-
-    #如果不存在"C:\\Users\\Administrator\\Desktop\\IDS_output_data\\result"目录，则创建
-    if not os.path.isdir(os.path.dirname(data_file)):
-        os.mkdir(os.path.dirname(data_file))
-
-    #写方式打开：'C:\Users\Administrator\Desktop\IDS_output_data\test_alert--2023-09-19T11:26:17.json' 文件
-    f = open(data_file,'w')
-    
-    #打印es查询字典
-    print(json.dumps(query_dict))
-
-
-    res_data = es_client.search(index=index,doc_type='doc',body=query_dict,scroll='2m',request_timeout=20)
-
-    scroll_size = len(res_data['hits']['hits'])
-    
-    
-    #查询指定字段：source_key
-    if len(source_key) == 1 and source_key[0] != '*':
-        value_set = set()
-        source_key = source_key[0].split('.')
-        while scroll_size > 0:
-            _scroll_id = res_data['_scroll_id']
-            data_list = res_data['hits']['hits']   # 查到的数据在这儿
-            for data in data_list:
-                try:
-                    if len(source_key) > 1:
-                        source_value = data['_source']
-
-                        for key in source_key:
-                            source_value = source_value[key]
-
-                    else:
-                        source_value = data['_source'][source_key[0]]
-                    value_set.add(source_value)
-                except Exception as e:
-                    print(e)
-            res_data = es_client.scroll(scroll_id=_scroll_id,scroll='2m')
-            scroll_size = len(res_data['hits']['hits'])
-        value_list = list(value_set)
-        f.write(json.dumps(value_list))
-    
-    #查询所有数据
-    else:
-        while scroll_size > 0:
-            _scroll_id = res_data['_scroll_id']
-            data_list = res_data['hits']['hits']  # 查到的数据在这儿
-            for data in data_list:
-                f.write(json.dumps(data['_source']))
-                f.write('\n')
-            res_data = es_client.scroll(scroll_id=_scroll_id, scroll='2m')
-            scroll_size = len(res_data['hits']['hits'])
-    f.close()
-
-
+#情况1：如果有需要“去重的字段列表”:distinct_key
 #一级####################################################################################################################
 def aggs_search(index, time_start, time_end, data_file, source_key, must_not_query, must_query_list, distinct_key):
 
@@ -364,7 +278,136 @@ def aggs_search(index, time_start, time_end, data_file, source_key, must_not_que
     #打印es查询字典
     print(json.dumps(query_dict)) #或print(json.dumps(query_dict,indent=2))
 
+    #使用es_client执行搜索操作，index：指定索引，doc_type：指定搜索文档类型，body:领域特定语言(DSL)的查询描述,request_timeout：请求的超时时间
+    res_data = es_client.search(index=index, doc_type='doc', body=query_dict, request_timeout=300)
+
+    res_data_buckets = res_data['aggregations']['term_by_key']['buckets']
+
+    #处理搜索结果并存储
+    #二级#############################################################################
+    
+    #指定字段：source_key，导出数据
+    if len(source_key) == 1 and source_key[0] != '*':
+        value_set = set()
+        source_key = source_key[0].split('.')
+        for data in res_data_buckets:
+            data = data['top_by_key']['hits']['hits'][0]
+            try:
+                if len(source_key) > 1:
+                    source_value = data['_source']
+
+                    for key in source_key:
+                        source_value = source_value[key]
+                else:
+                    source_value = data['_source'][source_key[0]]
+                value_set.add(source_value)
+            except Exception as e:
+                print (e)
+        value_list = list(value_set)
+        f.write(json.dumps(value_list))
+    #导出所有数据
+    else:
+        for data in res_data_buckets:
+            data = data['top_by_key']['hits']['hits'][0]
+            f.write(json.dumps(data['_source']))
+            f.write('\n')
+    f.close()
+    #二级#############################################################################
 #一级####################################################################################################################
+
+#情况2：没有需要“去重字段列表”
+#一级############################################################################################################
+def scroll_search(index, time_start, time_end, data_file, source_key, must_not_query, must_query_list):
+    
+    timestamp = "timestamp"
+    
+    #暂时不管
+    #############################################################################################
+    if index == 'sandbox':
+        timestamp = '@timestamp'
+        time_start -= 8 * 60 * 60
+        time_start= str(datetime.datetime.fromtimestamp(time_start).strftime('%Y-%m-%dT%H:%M:%S'))
+        time_end -= 8 * 60 * 60
+        time_end = str(datetime.datetime.fromtimestamp(time_end).strftime('%Y-%m-%dT%H:%M:%S'))
+    #############################################################################################
+
+    query_dict = {
+        "size": 2000,
+        "query": {
+            "bool": {
+                "filter": {
+                    "range": {
+                        timestamp: {
+                            "gte": time_start,           #传入参数time_start：开始时间
+                            "lte": time_end              #传入参数time_end：结束时间参数
+                        }
+                    }
+                },
+                "must_not": must_not_query,             #传入参数must_not_query：指定哪些条件不匹配列表
+                "must": must_query_list                 #传入参数must_query_list：过滤条件列表
+            }
+
+        },
+        "_source": source_key                            #传入参数source_key：需要导出的字段列表
+    }
+
+    #如果不存在"C:\\Users\\Administrator\\Desktop\\IDS_output_data\\result"目录，则创建
+    if not os.path.isdir(os.path.dirname(data_file)):
+        os.mkdir(os.path.dirname(data_file))
+
+    #写方式打开：'C:\Users\Administrator\Desktop\IDS_output_data\test_alert--2023-09-19T11:26:17.json' 文件
+    f = open(data_file,'w')
+    
+    #打印es查询字典
+    print(json.dumps(query_dict))
+
+    #使用es_client执行搜索操作，index：指定索引，doc_type：指定搜索文档类型，body:领域特定语言(DSL)的查询描述,scroll:滚动上下文的超时时间,request_timeout：请求的超时时间
+    res_data = es_client.search(index=index,doc_type='doc',body=query_dict,scroll='2m',request_timeout=20)
+
+    #搜索中获取了多少个文档
+    scroll_size = len(res_data['hits']['hits'])
+    
+    #处理搜索结果并存储
+    #二级#############################################################################
+    
+    #指定字段：source_key，导出数据
+    if len(source_key) == 1 and source_key[0] != '*':
+        value_set = set()
+        source_key = source_key[0].split('.')
+        while scroll_size > 0:
+            _scroll_id = res_data['_scroll_id']
+            data_list = res_data['hits']['hits']   # 查到的数据在这儿
+            for data in data_list:
+                try:
+                    if len(source_key) > 1:
+                        source_value = data['_source']
+
+                        for key in source_key:
+                            source_value = source_value[key]
+
+                    else:
+                        source_value = data['_source'][source_key[0]]
+                    value_set.add(source_value)
+                except Exception as e:
+                    print(e)
+            res_data = es_client.scroll(scroll_id=_scroll_id,scroll='2m')
+            scroll_size = len(res_data['hits']['hits'])
+        value_list = list(value_set)
+        f.write(json.dumps(value_list))
+    
+    #导出所有数据
+    else:
+        while scroll_size > 0:
+            _scroll_id = res_data['_scroll_id']
+            data_list = res_data['hits']['hits']  # 查到的数据在这儿
+            for data in data_list:
+                f.write(json.dumps(data['_source']))
+                f.write('\n')
+            res_data = es_client.scroll(scroll_id=_scroll_id, scroll='2m')
+            scroll_size = len(res_data['hits']['hits'])
+    f.close()
+    #二级#############################################################################
+#一级############################################################################################################
 
 
 #日志记录
@@ -461,7 +504,7 @@ if __name__ == '__main__':
     else:
         scroll_search(index_global, time_start_global, time_end_global, data_file_global, source_key_global,must_not_query_list_global,must_query_list_global)
     
-    
+    #日志记录
     save_record(index_global, time_start_global, time_end_global, data_file_global, source_key_global)
     
     

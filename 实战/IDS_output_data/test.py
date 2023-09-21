@@ -1,15 +1,15 @@
 # https://es-3ylk2io1.public.tencentelasticsearch.com:9200
 # elastic
-# 879086359@QQ.com
-# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200' -H 'Content-Type: application/json'  -u elastic:879086359@QQ.com
-# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/_cat/health?v' -H 'Content-Type: application/json'  -u elastic:879086359@QQ.com
-# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/_cat/indices?v' -H 'Content-Type: application/json'  -u elastic:879086359@QQ.com
+# *******
+# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200' -H 'Content-Type: application/json'  -u elastic:*******
+# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/_cat/health?v' -H 'Content-Type: application/json'  -u elastic:*******
+# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/_cat/indices?v' -H 'Content-Type: application/json'  -u elastic:*******
 
-# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/china/_doc/beijing?pretty' -H 'Content-Type: application/json'  -u elastic:879086359@QQ.com
+# curl -XGET 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/china/_doc/beijing?pretty' -H 'Content-Type: application/json'  -u elastic:*******
 
-# curl -XDELETE 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/my_index?pretty' -H 'Content-Type: application'  -u elastic:879086359@QQ.com
+# curl -XDELETE 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/my_index?pretty' -H 'Content-Type: application'  -u elastic:*******
 
-# curl -XDELETE 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/china/_doc/beijing?pretty' -H 'Content-Type: application/json'   -u elastic:879086359@QQ.com
+# curl -XDELETE 'https://es-3ylk2io1.public.tencentelasticsearch.com:9200/china/_doc/beijing?pretty' -H 'Content-Type: application/json'   -u elastic:*******
 
 #第三方库
 # from elasticsearch import Elasticsearch
@@ -18,7 +18,7 @@
 #连接es
 #########################################################################################################
 # es = Elasticsearch(["https://es-3ylk2io1.public.tencentelasticsearch.com:9200"],
-#                    http_auth=('elastic', '879086359@QQ.com'),
+#                    http_auth=('elastic', '*******'),
 #                    sniff_on_start=False,
 #                    sniff_on_connection_fail=False,
 #                    sniffer_timeout=None)

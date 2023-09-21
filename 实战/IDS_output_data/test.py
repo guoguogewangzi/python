@@ -74,6 +74,6 @@
 
 
 # add = lambda item: 'doc[\'' + item + '.keyword\'].value'
-# result = add("zhangxin")
+# result = add("ggg")
 # print(result)
 

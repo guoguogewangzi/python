@@ -5,7 +5,7 @@ from os.path import basename
 import elasticsearch
 from ssl import create_default_context
 
-#类：列构造获取ES客户端的类
+#类：构造获取ES客户端的类
 #一级##################################################################################################################
 class ElasticSearchClient(object):
     
@@ -23,7 +23,7 @@ class ElasticSearchClient(object):
 
             try:
                 #连接es
-                es_client = elasticsearch.Elasticsearch(['https://es-3ylk2io1.public.tencentelasticsearch.com:9200'],http_auth=('elastic', '879086359@QQ.com'),)
+                es_client = elasticsearch.Elasticsearch(['https://es-3ylk2io1.public.tencentelasticsearch.com:9200'],http_auth=('elastic', 'password'),)
                 
                 ###################测试连接是否成功#######################
                 # try:

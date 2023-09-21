@@ -1,7 +1,10 @@
 # coding=utf-8
+
+#内置库
 import sys,json,time,datetime,os,zipfile
 from os.path import basename
 
+#第三方库
 import elasticsearch
 from ssl import create_default_context
 

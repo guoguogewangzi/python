@@ -65,6 +65,8 @@ print("CSV文件已生成：ip_geolocation.csv")
 
 
 '''
+手动提取xpath语句：//*[@id="root"]/div/main/div/div/div[2]/table/tbody/tr/td[1]/div
+
 下一步计划：
 自动化爬取数据并处理数据，地址如下：
 https://42.194.233.78:9443/events?page=1&size=100&order=[]&params={%22event%22%3A{%22start%22%3A1701360000000%2C%22end%22%3A1702569540000}%2C%22tab%22%3A%22event%22}

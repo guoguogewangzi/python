@@ -2,6 +2,9 @@
 api文档：都要收费
 https://platform.openai.com/docs/guides/text-generation/chat-completions-api
 
+购买：
+https://platform.openai.com/account/billing/overview
+
 '''
 
 #内置库

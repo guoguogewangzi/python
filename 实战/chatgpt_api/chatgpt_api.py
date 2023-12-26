@@ -1,6 +1,7 @@
 '''
-api文档：
+api文档：都要收费
 https://platform.openai.com/docs/guides/text-generation/chat-completions-api
+
 '''
 
 #内置库

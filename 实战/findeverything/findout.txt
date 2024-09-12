@@ -1,0 +1,5 @@
+[+] File Path:C:\Users\ThinkBook\Desktop\新建文本文档.txt
+[=] Line Rows:2
+[~] In Line 2:passwordewewer
+[~] In Line 4:password
+

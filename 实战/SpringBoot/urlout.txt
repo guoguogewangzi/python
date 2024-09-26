@@ -1,0 +1,4 @@
+https://35.71.160.48/actuator/beans
+https://35.71.160.48/druid/index.html
+https://35.71.160.48/druid/login.html
+https://35.71.160.48/druid/websession.html

@@ -12,10 +12,13 @@
             "console": "integratedTerminal",
             //"cwd": "${fileDirname}/..",
             "args": [
-                "-h",
+                "guoguogewangzi",
+                "-l",
+                "-p",
+                "socks5://127.0.0.1:10808",
+                "",    
                 "",
-                "",
-                ""]
+            ]
         }
     ]
 }

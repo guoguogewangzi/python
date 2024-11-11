@@ -29,28 +29,31 @@ except ImportError:
 checksymbols = ["_", "-", "."]
 
 
-
+#重写request的区别：在请求响应中自动记录响应时间
 class SherlockFuturesSession(FuturesSession):
+
     def request(self, method,url,hooks=None,*args,**kwargs):
         if hooks is None:
             hooks = {}
-        start = monotonic()
+        start = monotonic()  #时间计时器，起始时间
 
-        def response_time(resp,*args,**kwargs):
+        def response_time(resp,*args,**kwargs):  
             resp.elapsed = monotonic() - start
             return
         try:
-            if isinstance(hooks["response"],list):
-                hooks["response"].insert(0,response_time)
+            #判断1：hooks["response"]是否属于list类型
+            if isinstance(hooks["response"],list):  
+                hooks["response"].insert(0,response_time)# hooks["response"] 列表的开头（索引 0 位置）插入一个元素 response_time
+            #判断2：hooks["response"]是否属于元组（tuple）类型
             elif isinstance(hooks["response"],tuple):
-                hooks["response"] = list(hooks["response"])
-                hooks["response"].insert(0,response_time)
+                hooks["response"] = list(hooks["response"])#转换为列表（list）类型
+                hooks["response"].insert(0,response_time)# hooks["response"] 列表的开头（索引 0 位置）插入一个元素 response_time
             else:
-                hooks["response"] = [response_time,hooks["response"]]
+                hooks["response"] = [response_time,hooks["response"]]#比如：hooks["response"] 将变为 [response_time, ['a', 'b', 'c']]
         except KeyError:
-            hooks["response"] = [response_time]
+            hooks["response"] = [response_time] #hooks["response"] 值被覆盖为:[response_time]
 
-        return super(SherlockFuturesSession,self).request(method,url,hooks=hooks,*args,**kwargs)
+        return super(SherlockFuturesSession,self).request(method,url,hooks=hooks,*args,**kwargs) #与直接super().request()等效，都是调用父类的 request 方法。
 
 
 def timeout_check(value):
@@ -64,58 +67,85 @@ def timeout_check(value):
 def handler(signal_received,frame):
     sys.exit(0)
 
-
+#判断用户名是否存在 {?} 符号，返回True或False
 def check_for_parameter(username):
     return "{?}" in username
 
-
+#输入"test{?}t"，返回：['test_t', 'test-t', 'test.t']
+#########################################################
 def multiple_usernames(username):
     allUsernames = []
     for i in checksymbols:
         allUsernames.append(username.replace("{?}",i))
     return allUsernames
+#########################################################
 
+#查询接口url处理，将{}替换为username
+#####################################################
 def interpolate_string(input_object,username):
-    if isinstance(input_object,str):
+    if isinstance(input_object,str):          #input_object，如果是字符串
         return input_object.replace("{}",username)
-    elif isinstance(input_object,dict):
+    
+    elif isinstance(input_object,dict):       #input_object，如果是字典
         return {k:interpolate_string(v,username) for k,v in input_object.items()}
-    elif isinstance(input_object,list):
+    
+    elif isinstance(input_object,list):       #input_object，如果是列表
         return [interpolate_string(i,username) for i in input_object]
+    
     return input_object
+#####################################################
 
+#返回请求响应的结果，以及错误信息类型，和详细错误信息
+###############################################################
 def get_response(request_future,error_type,social_network):
     response = None
-    error_context = "General Unknown Error"
-    exception_text = None
+    error_context = "General Unknown Error"  #用于存储错误的上下文信息，默认为：“General Unknown Error”，意味着如果发生错误，但没有特别的处理，最终会返回此错误信息。
+    exception_text = None  # 用于存储异常的详细信息
     try:
-        response = request_future.result()
-        if response.status_code:
+        response = request_future.result()   #获取请求响应的结果
+
+        if response.status_code:     #如果响应的status_code 存在且有效，error_context会被设置为None,表示没有发生错误。
+
             # Status code exists in response object
             error_context = None
+    
+    #请求的返回错误状态码，如404或500时会抛出此异常，异常信息会被存储到exception_text中，并且错误上下文被设置为：“HTTP Error”
     except requests.exceptions.HTTPError as errh:
         error_context = "HTTP Error"
         exception_text = str(errh)
+    
+    #如果请求过程中发生代理错误，则捕获此异常
     except requests.exceptions.ProxyError as errp:
         error_context = "Proxy Error"
         exception_text = str(errp)
+    
+    #如果发生网络连接问题，则捕获此异常
     except requests.exceptions.ConnectionError as errc:
         error_context = "Error Connecting"
         exception_text = str(errc)
+
+    #如果请求因超时而失败，将触发此异常
     except requests.exceptions.Timeout as errt:
         error_context = "Timeout Error"
         exception_text = str(errt)
+
+    #requests库的基类异常，捕获所有未被具体分类的请求异常
     except requests.exceptions.RequestException as err:
         error_context = "Unknown Error"
         exception_text = str(err)
 
+    #最终返回三个值：1.请求响应的结果，2.错误类型描述，请求成功则为None,如果发生错误则包含对应的错误上下文（如HTTP Error，Proxy Error等），3.错误的详细信息
     return response,error_context,exception_text
-    
+###############################################################
 
 
 def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_tor:bool = False,dump_response:bool = False,proxy=None,timeout=60):
+    
+    #打印开始提示：“[*] Checking username test1 test2 on:”
     query_notify.start(username)
 
+    #判断tor或unique_tor是否存在，以及实例化HTTP请求模块
+    #############################################################################################
     if tor or unique_tor:
         try:
             from torrequest import TorRequest
@@ -127,47 +157,60 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
             sys.exit(query_notify.finish())
         print("Important!")
         print("> --tor and --unique-tor are now DEPRECATED, and may be removed in a future release of Sherlock.")
-
+    
         try:
-            underlying_request = TorRequest()
+            underlying_request = TorRequest()    #如果存在，则使用TorRequest()实例化
         except OSError:
             print("Tor not found in system path. Unable to continue.\n")
             sys.exit(query_notify.finish())
         underlying_session = underlying_request.session
     else:
-        underlying_session = requests.session()
-        underlying_request = requests.Request()
-    
+        underlying_session = requests.session() #如果不存在，则使用requests.session()实例化
+        underlying_request = requests.Request() #如果不存在，则使用requests.Request()实例化
+    #################################################################################################
+
+    #最大并发参数设置：20
+    ##########################
     if len(site_data) >=20:
-        max_workers = 20
+        max_workers = 100
     else:
         max_workers = len(site_data)
+    ##########################
+
+    #实例化网络并发实例
     session = SherlockFuturesSession(max_workers=max_workers,session=underlying_session)
     
+
     results_total = {}
     for social_network,net_info in site_data.items():
-        result_site = {"url_main":net_info.get("urlMain")}
-        headers = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0",}
-        if "headers" in net_info:
-            headers.update(net_info["headers"])
 
-        url = interpolate_string(net_info["url"],username.repalce('','%20'))
+        results_site = {"url_main":net_info.get("urlMain")} #赋值，urlMain键和值
 
-        regex_check = net_info.get("regexCheck")
+        headers = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0",} 
+        
+        if "headers" in net_info:                #如果库存在headers字段
+            headers.update(net_info["headers"])  #则更新headers
 
-        if regex_check and re.search(regex_check,username) is None:
-            result_site["status"] = QueryResult(username,social_network,url,QueryStatus.ILLEGAL)
-            result_site["url_user"] = ""
-            result_site["response_text"] = ""
-            query_notify.update(result_site["status"])
-        else:
-            result_site["url_user"] = url
-            url_probe = net_info.get("urlProbe")
-            request_method = net_info.get("request_method")
-            request_payload = net_info.get("request_payload")
+        url = interpolate_string(net_info["url"],username.replace(' ','%20'))   #查询接口拼接用户名
+
+        regex_check = net_info.get("regexCheck") #获取regexCheck的值
+
+        if regex_check and re.search(regex_check,username) is None:              #如果存在正则表达式，并且username不匹配正则表达式，是空的
+            results_site["status"] = QueryResult(username, social_network, url, QueryStatus.ILLEGAL)#存储状态,状态：1.用户名，2.网站名，3.查询的url，4.标记：为用户名不合法
+            results_site["url_user"] = ""                          
+            results_site["http_status"] = ""
+            results_site["response_text"] = ""
+            query_notify.update(results_site["status"])
+        else:                                                    #否则，用户名合法
+            results_site["url_user"] = url                        #记录:查询的url
+            url_probe = net_info.get("urlProbe")                 #记录（如果存在,否则None）：真正的API URL
+            request_method = net_info.get("request_method")      #记录（如果存在,否则None）：请求方法
+            request_payload = net_info.get("request_payload")    #记录（如果存在,否则None）：请求payload
             request = None
 
-            if request_method is not None:
+            #定义请求方法
+            #############################################
+            if request_method is not None:                       #如果请求方法不是空（自添加）
                 if request_method == "GET":
                     request = session.get
                 elif request_method == "HEAD":
@@ -178,75 +221,121 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
                     request = session.put
                 else:
                     raise RuntimeError(f"Unsupported request_method for {url}")
+            #############################################
 
+            #待替换的{}，{}在request_payload情况处理
             if request_payload is not None:
                 request_payload = interpolate_string(request_payload,username)
+
+            #真正的查询接口不存在
             if url_probe is None:
                 url_probe = url
-            else:
+
+            #真正的查询接口存在
+            else:                 
                 url_probe = interpolate_string(url_probe,username)
             
+            #未自添加请求方法
             if request is None:
-                if net_info["errorType"] == "status_code":
+                #默认为head方法
+                if net_info["errorType"] == "status_code":  #如果为status_code类型,tip:"errorType"有三种类型："message"，"status_code"，"response_url"
                     request = session.head
+                #如果未添加"errorType"，则为get请求方法
                 else:
                     request = session.get
-
+            
+            #如果为：response_url类型，则不允许重定向
             if net_info["errorType"] == "response_url":
                 allow_redirects = False
             else:
                 allow_redirects = True
             
+            #如果没有设置代理
             if proxy is not None:
                 proxies = {"http":proxy,"https":proxy}
-                future = request(url = url_probe,headers = headers,proxies=proxies,allow_redirects=allow_redirects,timeout=timeout,json=request_payload)
-            else:
-                future = request(url=url_probe,headers=headers,allow_redirects=allow_redirects,timeout=timeout,json=request_payload,)
 
+                future = request(url = url_probe,headers = headers,proxies=proxies,allow_redirects=allow_redirects,timeout=timeout,json=request_payload)  #发起请求
+
+            else:
+                future = request(url=url_probe,headers=headers,allow_redirects=allow_redirects,timeout=timeout,json=request_payload,) #发起请求
+
+            #存储请求结果
             net_info["request_future"] = future
 
-            if unique_tor:
-                underlying_request.reset_identity()
 
-        results_total[social_network] = result_site
-    for social_network,net_info in site_data.items():
-        results_site = results_total.geet(social_network)
-        url = results_site.get("url_user")
-        status = results_site.get("status")
+            if unique_tor:
+                underlying_request.reset_identity()     #确保接下来的请求不携带以前的身份数据
+
+        results_total[social_network] = results_site    #转存results_site至results_total
+
+    
+
+    for social_network,net_info in site_data.items():  #遍历data.json里的数据
+        
+        results_site = results_total.get(social_network) #从处理后的results_total里获取对应的站点信息
+
+        url = results_site.get("url_user")     #获取待查询的url
+
+        status = results_site.get("status")    #获取存储的状态，包括：1.用户名，2.网站名，3.查询的url，4.标记：为用户名不合法
+        
+        #如果获取的状态不是空的（即用户名不合法），即结束，跳出循环，否则继续其他处理
         if status is not None:
             continue
-        error_type = net_info["errorType"]
 
-        future = net_info["request_future"]
+        error_type = net_info["errorType"]   #获取errorType类型
+
+        future = net_info["request_future"]  #获取存储的请求结果
+
+        # 返回请求响应的结果，以及错误信息类型，和详细错误信息
         r,error_text,exception_text = get_response(request_future=future,error_type=error_type,social_network=social_network)
 
+        #获取请求的响应时间
+        #######################################
         try:
-            response_time = r.elapsed
+            response_time = r.elapsed    
 
         except AttributeError:
             response_time = None
+        #######################################
 
+        #获取响应状态码
+        #######################################
         try:
             http_status = r.status_code
         except Exception:
             http_status = "?"
+        #######################################
 
+        #获取响应内容
+        #######################################
         try:
             response_text = r.text.encode(r.encoding or "UTF-8")
         except Exception:
             response_text = ""
-        
+        #######################################
+
+        #首先标记“用户名未知”
         query_status = QueryStatus.UNKNOWN
+
+        #设置错误类型为None
         error_context = None
+
+        #用于匹配被WAF拦截时返回的响应特征
         WAFHitMsgs = [
             '.loading-spinner{visibility:hidden}body.no-js .challenge-running{display:none}body.dark{background-color:#222;color:#d9d9d9}body.dark a{color:#fff}body.dark a:hover{color:#ee730a;text-decoration:underline}body.dark .lds-ring div{border-color:#999 transparent transparent}body.dark .font-red{color:#b20f03}body.dark', 
             '{return l.onPageView}}),Object.defineProperty(r,"perimeterxIdentifiers",{enumerable:' 
         ]
 
+        #如果返回的错误类型不空，则转存至error_context
         if error_text is not None:
             error_context = error_text
+
+        #如果是waf的返回信息，则标记为waf
         elif any(hitMsg in r.text for hitMsg in WAFHitMsgs):
             query_status = QueryStatus.WAF
+        
+        #情况1：message，默认存在该用户名（即error_flag =True），只要存在了指定的错误信息，则不存在该用户名（即error_flag =False）
+        ##########################################
         elif error_type == "message":
             error_flag =True
             errors = net_info.get("errorMsg")
@@ -259,86 +348,95 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
                         error_flag =False
                         break
             if error_flag:
-                query_status = QueryStatus.CLAIMED
+                query_status = QueryStatus.CLAIMED       #存在标记
             else:
-                query_status = QueryStatus.AVAILABLE
+                query_status = QueryStatus.AVAILABLE     #不存在标记
+        ##########################################
+
+        #情况2：status_code，默认存在，如果在指定的状态码里面，或者返回的状态码大于等于300，或者小于200，则不存在
+        ##########################################
         elif error_type == "status_code":
             error_codes = net_info.get("errorCode")
-            query_status = QueryStatus.CLAIMED
+            query_status = QueryStatus.CLAIMED         #默认存在标记
             if isinstance(error_codes,int):
                 error_codes = [error_codes]
 
-            if error_codes is not None and r.status_code in error_codes:
-                query_status = QueryStatus.AVAILABLE
-            elif r.status_code >= 300 or r.status_code < 200:
-                query_status = QueryStatus.AVAILABLE
-        elif error_type == "response_url":
-            if 200<= r.status_code < 300:
-                query_status = QueryStatus.CLAIMED
+            if error_codes is not None and r.status_code in error_codes:     #如果：返回的状态码在指定的状态码里面，则不存在
+                query_status = QueryStatus.AVAILABLE                         #不存在标记
+
+            elif r.status_code >= 300 or r.status_code < 200:                #如果：返回的状态码大于等于300，或者小于200，则不存在
+                query_status = QueryStatus.AVAILABLE                         #不存在标记
+        ##########################################
+
+
+        #情况3：response_url，果返回的状态码大于等于200，并且小于300，则存在
+        ##########################################
+        elif error_type == "response_url":              
+            if 200<= r.status_code < 300:                 #如果返回的状态码大于等于200，并且小于300，则存在
+                query_status = QueryStatus.CLAIMED         #存在标记
             else:
-                query_status = QueryStatus.AVAILABLE
+                query_status = QueryStatus.AVAILABLE        #不存在标记
+        ##########################################
+        
+        #否则报未知的error_type类型错误
         else:
             raise ValueError(f"Unknown Error Type '{error_type}' for " f"site '{social_network}'")
 
+        #打印三类信息：data.json部分信息，响应的状态码和文本，判断结果
+        ############################################################
         if dump_response:
             print("+++++++++++++++++++++")
-            print(f"TARGET NAME   : {social_network}")
-            print(f"USERNAME      : {username}")
-            print(f"TARGET URL    : {url}")
-            print(f"TEST METHOD   : {error_type}")
+            print(f"TARGET NAME   : {social_network}")        #打印网站名称
+            print(f"USERNAME      : {username}")              #打印用户名
+            print(f"TARGET URL    : {url}")                   #打印待查询的url
+            print(f"TEST METHOD   : {error_type}")            #打印判断类型（反向判断），error_type
             try:
-                print(f"STATUS CODES  : {net_info['errorCode']}")
+                print(f"STATUS CODES  : {net_info['errorCode']}") #如果有errorCode（data.json中），则打印
             except KeyError:
                 pass
+
             print("Results...")
+
             try:
-                print(f"RESPONSE CODE : {r.status_code}")
+                print(f"RESPONSE CODE : {r.status_code}")    #打印返回的状态码
             except Exception:
                 pass
             try:
-                print(f"ERROR TEXT    : {net_info['errorMsg']}")
+                print(f"ERROR TEXT    : {net_info['errorMsg']}")   #如果有errorMsg（data.json中），则打印
             except KeyError:
                 pass
+
             print(">>>>> BEGIN RESPONSE TEXT")
             try:
-                print(r.text)
+                print(r.text)                               #打印响应文本
             except Exception:
                 pass
             print("<<<<< END RESPONSE TEXT")
-            print("VERDICT       : " + str(query_status))
+            print("VERDICT       : " + str(query_status))   #打印判断结果
             print("+++++++++++++++++++++")
+        ############################################################
+
+        #将结果转存至实例化result中
         result = QueryResult(username=username,site_name=social_network,site_url_user=url,status=query_status,query_time=response_time,context=error_context,)
-        query_notify.update(result)
-        result.site["status"] = result
-        results_site["http_status"] = http_status
-        results_site["response_text"] = response_text
 
-        results_total[social_network] = results_site
 
-    return results_total
+        query_notify.update(result)                            #更新result
+
+        results_site["status"] = result                        #result保存至results_site中
+        results_site["http_status"] = http_status              #同时保存http_status（返回状态码）
+        results_site["response_text"] = response_text          #同时保存response_text（返回文本）
+
+        results_total[social_network] = results_site           #results_site转存至results_total
+
+    return results_total                                       #返回results_total
 
 
 def main():
 
     parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter,description=f"{__longname__} (Version {__version__})",)
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"{__shortname__} v{__version__}",
-        help="显示版本信息和依赖关系"
-    )
 
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        "-d",
-        "--debug",
-        action="store_true",
-        dest="verbose",
-        default=False,
-        help="显示额外调试信息"
-
-    )
+    parser.add_argument("--version",action="version",version=f"{__shortname__} v{__version__}",help="显示版本信息和依赖关系")
+    parser.add_argument("--verbose","-v","-d","--debug",action="store_true",dest="verbose",default=False,help="显示额外调试信息")
     parser.add_argument("--folderoutput","-fo",dest="folderoutput",help="如果是多个用户名，输出结果将保存至该文件夹")
     parser.add_argument("--output","-o",dest="output",help="如果是单个用户名，输出结果将保存至该文件夹")
     parser.add_argument("--tor","-t",action="store_true",dest="tor",default=False,help="通过tor发送请求，需要安装Tor并已添加系统路径")
@@ -358,6 +456,7 @@ def main():
     parser.add_argument("--local","-l",action="store_true",default=False,help="强制使用本地的data.json文件")
     parser.add_argument("--nsfw",action="store_true",default=False,help="从默认列表中检查NSFW")
     parser.add_argument("--no-txt",action="store_true",dest="no_txt",default=False,help="禁用创建txt文件")
+
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT,handler)
@@ -384,7 +483,7 @@ def main():
 
     #proxy是否不是空
     if args.proxy is not None:
-        print("使用代理："+ args.proxy)
+        print("Using the proxy:"+ args.proxy)
     
     #tor或unique_tor参数是否存在
     if args.tor or args.unique_tor:
@@ -425,9 +524,11 @@ def main():
         sites.remove_nsfw_sites(do_not_remove=args.site_list)
 
 
-    #  
+    #sites对象里的数据 转存 site_data_all字典
     site_data_all = {site.name: site.information for site in sites}
 
+    #site_data_all 处理至 site_data
+    #############################################################################
     #如果指定的站点列表为空
     if args.site_list == []:
         site_data = site_data_all
@@ -447,9 +548,13 @@ def main():
                 print(f"错误：未找到所需站点：{', '.join(site_missing)}.")
             if not site_data:
                 sys.exit(1)
+    #############################################################################
 
+    #verbose:显示额外调试信息,print_all:打印找不到用户名的网站,browse:在默认浏览器浏览所有结果
     query_notify = QueryNotifyPrint(result=None,verbose = args.verbose,print_all=args.print_all,browse=args.browse)
 
+    #用户名转存至all_usernames
+    #################################################
     all_usernames = []
     for username in args.username:
         if check_for_parameter(username):
@@ -457,26 +562,41 @@ def main():
                 all_usernames.append(name)
         else:
             all_usernames.append(username)
+    #################################################
+
+
     for username in all_usernames:
+        
+        #传参：username(处理后)，site_data(处理后),query_notify,tor,unique_tor,dump_response,proxy,timeout，返回结果
         results = sherlock(username,site_data,query_notify,tor=args.tor,unique_tor=args.unique_tor,dump_response=args.dump_response,proxy=args.proxy,timeout=args.timeout)
+
+        #待保存的文件
+        ###################################
         if args.output:
             result_file = args.output
+
         elif args.folderoutput:
+            
             os.makedirs(args.folderoutput,exist_ok=True)
+            
             result_file = os.path.join(args.foderoutput,f"{username}.txt")
+
         else:
             result_file = f"{username}.txt"
+        ###################################
 
+        #如果没有指定args.no_txt，写入txt文件
         if not args.no_txt:
             with open(result_file,"w",encoding="utf-8") as file:
                 exists_counter = 0
                 for website_name in results:
                     dictionary = results[website_name]
-                    if dictionary.get("status").status == QueryStatus.CLAIMED:
+                    if dictionary.get("status").status == QueryStatus.CLAIMED:   #判断是否是存在标识
                         exists_counter +=1
-                        file.write(dictionary["url_user"] + "\n")
-                file.write(f"检测到的网站用户名总数:{exists_counter}\n")
+                        file.write(dictionary["url_user"] + "\n")                #写入带用户名的url
+                file.write(f"检测到的网站用户名总数:{exists_counter}\n")           
         
+        #如果指定csv参数,写入csv文件
         if args.csv:
             result_file = f"{username}.csv"
             if args.folderoutput:
@@ -493,6 +613,8 @@ def main():
                     if response_time_s is None:
                         response_time_s = ""
                     writer.writerow([username,site,results[site]["url_main"],results[site]["url_user"],str(results[site]["status"].status),results[site]["http_status"],response_time_s,])
+        
+        #如果指定xlsx参数，写入xlsx文件
         if args.xlsx:
             usernames=[]
             names = []
@@ -521,6 +643,8 @@ def main():
             DataFrame.to_excel(f"{username}.xlsx",sheet_name="sheet1",index=False)
         
         print()
+    
+    #结束语：[*] Search completed with 20 results
     query_notify.finish()
 
 

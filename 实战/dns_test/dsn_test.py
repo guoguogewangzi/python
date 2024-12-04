@@ -42,11 +42,11 @@ if __name__ == "__main__":
     # dns_server = input("指定DNS服务器 (default 114.114.114.114): ") or "114.114.114.114"
     # port = input("指定DNS服务器端口 (default 53): ") or "53"
 
-    domain = "www.yyy.com"
+    domain = "www.xxxx.com"
     record_type = "A"
-    dns_server = "192.168.195.203"
-    port = "8091"    #蜜罐
-    #port = "8090"   #真实
+    dns_server = "192.168.xx.xx"
+    port = "xxx"    #蜜罐
+    #port = "xxx"   #真实
 
     try:
         port = int(port)  # 将端口转为整数

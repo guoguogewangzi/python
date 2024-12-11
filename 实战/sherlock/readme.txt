@@ -1,3 +1,9 @@
+启动方式一:
+执行sherlock_project文件夹下的__main__.py，参数在launch.json
+
+
+
+启动方式二：
 方法一：
 1.安装 pipx：
 python3 -m pip install --user pipx
@@ -34,3 +40,6 @@ C:\Users\ThinkBook\AppData\Roaming\Python\Python312\Scripts\pipx.exe
 
 2）pipx的用户目录，包含安装的 Python 应用程序、虚拟环境等
 C:\Users\ThinkBook\pipx
+
+
+

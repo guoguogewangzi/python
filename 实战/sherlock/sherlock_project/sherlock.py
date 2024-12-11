@@ -4,12 +4,17 @@ from argparse import ArgumentParser,RawDescriptionHelpFormatter,ArgumentTypeErro
 import signal
 from json import loads as json_loads
 from time import monotonic
+from urllib.parse import urlparse
+
 
 #第三方库
 import requests
 from colorama import init
 import pandas as pd
 from requests_futures.sessions import FuturesSession
+import urllib3
+urllib3.disable_warnings()
+
 
 #自定义库
 from sherlock_project.__init__ import(__longname__,__shortname__,__version__,forge_api_latest_release,)
@@ -144,8 +149,9 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
     #打印开始提示：“[*] Checking username test1 test2 on:”
     query_notify.start(username)
 
-    #判断tor或unique_tor是否存在，以及实例化HTTP请求模块
+    #判断tor或unique_tor是否存在，以及实例化HTTP请求模块，**核心语句**
     #############################################################################################
+    #存在tor或unique_tor
     if tor or unique_tor:
         try:
             from torrequest import TorRequest
@@ -164,9 +170,11 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
             print("Tor not found in system path. Unable to continue.\n")
             sys.exit(query_notify.finish())
         underlying_session = underlying_request.session
+    
+    #不存在tor或unque_tor,**核心语句**
     else:
-        underlying_session = requests.session() #如果不存在，则使用requests.session()实例化
-        underlying_request = requests.Request() #如果不存在，则使用requests.Request()实例化
+        underlying_session = requests.session() #如果不存在，则使用requests.session()实例化，**核心语句**
+        underlying_request = requests.Request() #如果不存在，则使用requests.Request()实例化，存在unique_tor参数才用
     #################################################################################################
 
     #最大并发参数设置：20
@@ -177,7 +185,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
         max_workers = len(site_data)
     ##########################
 
-    #实例化网络并发实例
+    #实例化网络并发实例，**核心语句**
     session = SherlockFuturesSession(max_workers=max_workers,session=underlying_session)
     
 
@@ -186,7 +194,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
 
         results_site = {"url_main":net_info.get("urlMain")} #赋值，urlMain键和值
 
-        headers = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0",} 
+        headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",} 
         
         if "headers" in net_info:                #如果库存在headers字段
             headers.update(net_info["headers"])  #则更新headers
@@ -208,7 +216,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
             request_payload = net_info.get("request_payload")    #记录（如果存在,否则None）：请求payload
             request = None
 
-            #定义请求方法
+            #（自添加的请求方法：如："request_method": "GET",）定义请求方法，**核心语句**
             #############################################
             if request_method is not None:                       #如果请求方法不是空（自添加）
                 if request_method == "GET":
@@ -235,7 +243,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
             else:                 
                 url_probe = interpolate_string(url_probe,username)
             
-            #未自添加请求方法
+            #（未自定义添加请求方法），默认为head，如果连“errorType”(必填项)都未添加，则为get，**核心语句**
             if request is None:
                 #默认为head方法
                 if net_info["errorType"] == "status_code":  #如果为status_code类型,tip:"errorType"有三种类型："message"，"status_code"，"response_url"
@@ -244,20 +252,22 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
                 else:
                     request = session.get
             
-            #如果为：response_url类型，则不允许重定向
+            #如果为：response_url类型，则不允许重定向（不允许跳转，返回的数据就包含即将重定向的链接）
             if net_info["errorType"] == "response_url":
                 allow_redirects = False
             else:
                 allow_redirects = True
-            
-            #如果没有设置代理
+
+
+            #如果设置了代理情况
             if proxy is not None:
                 proxies = {"http":proxy,"https":proxy}
+                future = request(url = url_probe,headers = headers,proxies=proxies,allow_redirects=allow_redirects,verify=False,timeout=timeout,json=request_payload)  #实际发起请求，**核心语句**
 
-                future = request(url = url_probe,headers = headers,proxies=proxies,allow_redirects=allow_redirects,timeout=timeout,json=request_payload)  #发起请求
-
+            
+            #没有设置代理情况
             else:
-                future = request(url=url_probe,headers=headers,allow_redirects=allow_redirects,timeout=timeout,json=request_payload,) #发起请求
+                future = request(url=url_probe,headers=headers,allow_redirects=allow_redirects,verify=False,timeout=timeout,json=request_payload) #实际发起请求，**核心语句**
 
             #存储请求结果
             net_info["request_future"] = future
@@ -334,17 +344,19 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
         elif any(hitMsg in r.text for hitMsg in WAFHitMsgs):
             query_status = QueryStatus.WAF
         
+        #                                                       **核心语句**
+        ################################################################################################################
         #情况1：message，默认存在该用户名（即error_flag =True），只要存在了指定的错误信息，则不存在该用户名（即error_flag =False）
         ##########################################
         elif error_type == "message":
             error_flag =True
             errors = net_info.get("errorMsg")
             if isinstance(errors,str):
-                if errors in r.text:
+                if errors.encode().decode() in r.text:
                     error_flag = False
             else:
                 for error in errors:
-                    if error in r.text:
+                    if error.encode().decode() in r.text:
                         error_flag =False
                         break
             if error_flag:
@@ -356,6 +368,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
         #情况2：status_code，默认存在，如果在指定的状态码里面，或者返回的状态码大于等于300，或者小于200，则不存在
         ##########################################
         elif error_type == "status_code":
+
             error_codes = net_info.get("errorCode")
             query_status = QueryStatus.CLAIMED         #默认存在标记
             if isinstance(error_codes,int):
@@ -369,7 +382,7 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
         ##########################################
 
 
-        #情况3：response_url，果返回的状态码大于等于200，并且小于300，则存在
+        #情况3：response_url，如果返回的状态码大于等于200，并且小于300，则存在
         ##########################################
         elif error_type == "response_url":              
             if 200<= r.status_code < 300:                 #如果返回的状态码大于等于200，并且小于300，则存在
@@ -377,7 +390,26 @@ def sherlock(username,site_data,query_notify:QueryNotify,tor:bool=False,unique_t
             else:
                 query_status = QueryStatus.AVAILABLE        #不存在标记
         ##########################################
-        
+
+        #情况4：text，默认不存在，如果指定的字符串在响应的 r.text 里，则标记为存在
+        ##########################################
+        elif error_type == "text":
+            query_status = QueryStatus.AVAILABLE  # 默认不存在标记
+            match_text = net_info.get("matchText")  # 从 net_info 获取指定的字符串或列表
+            match_text = interpolate_string(match_text,username.replace(' ','%20')) #指定(字符串/列表)拼接用户名
+            if isinstance(match_text, str):  # 如果是字符串，直接判断
+                if match_text.encode().decode().lower() in r.text:
+                    query_status = QueryStatus.CLAIMED  # 标记为存在
+            else:  # 如果是列表，逐个判断
+                for text in match_text:
+                    if text.encode().decode().lower() in r.text:
+                        query_status = QueryStatus.CLAIMED  # 如果找到匹配项，标记为存在
+                        break  # 结束循环
+        ##########################################
+        ################################################################################################################
+
+
+
         #否则报未知的error_type类型错误
         else:
             raise ValueError(f"Unknown Error Type '{error_type}' for " f"site '{social_network}'")

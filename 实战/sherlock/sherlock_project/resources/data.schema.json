@@ -36,7 +36,7 @@
                 },
                 "errorType": {
                     "type": "string",
-                    "enum": [ "message", "response_url", "status_code" ]
+                    "enum": [ "message", "response_url", "status_code", "text" ]
                 },
                 "errorMsg": {
                     "oneOf": [
@@ -51,7 +51,13 @@
                     ]
                 },
                 "errorUrl": { "type": "string" },
-                "response_url": { "type": "string" }
+                "response_url": { "type": "string" },
+                "matchText": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "array", "items": { "type": "string" } }
+                    ]
+                }
             },
             "dependencies": {
                 "errorMsg": {
@@ -62,13 +68,20 @@
                 },
                 "errorCode": {
                     "properties": { "errorType": { "const": "status_code" } }
+                },
+                "matchText": {
+                    "properties": { "errorType": { "const": "text" } }
                 }
             },
             "if": { "properties": { "errorType": { "const": "message" } } },
             "then": { "required": [ "errorMsg" ] },
             "else": {
                 "if": { "properties": { "errorType": { "const": "response_url" } } },
-                "then": { "required": [ "errorUrl" ] }
+                "then": { "required": [ "errorUrl" ] },
+                "else": {
+                    "if": { "properties": { "errorType": { "const": "text" } } },
+                    "then": { "required": [ "matchText" ] }
+                }
             },
             "additionalProperties": false
         }

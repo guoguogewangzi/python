@@ -22,6 +22,15 @@ pipx install sherlock-project
 
 5.验证，开启新cmd，输入：sherlock -h
 
+
+6.demo
+sherlock.exe xxx -l -p http://127.0.0.1:10809 -o C:\\Users\\ThinkBook\\Desktop\\test.txt
+
+7.其他：并发数设置
+max_workers = 100
+
+
+
 方法二：（安装依赖）
 如果有 pyproject.toml 文件：
 python3 -m pip install .
